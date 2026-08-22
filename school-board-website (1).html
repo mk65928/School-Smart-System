@@ -1,0 +1,1549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>School Board System</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/human/3.3.6/human.js"></script>
+<style>
+  :root{
+    --ink-navy:#12182A; --ink-panel:#1B2440; --ink-panel-2:#232F54;
+    --amber:#F0A83A; --red:#E2554A; --green:#47B881; --off-white:#EDEFF5; --muted:#8A93B3;
+    --office-bg:#F5F4F0; --office-panel:#FFFFFF; --office-ink:#1B2440; --office-border:#E4E2DA; --office-muted:#8A8674;
+    /* period coverage status colors — used identically across teacher, classroom board, and office */
+    --status-green:#47B881; --status-yellow:#E8C547; --status-orange:#E88A3A; --status-red:#E2554A;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--office-bg);color:var(--office-ink);}
+  #app{min-height:100vh;}
+  .spin{width:16px;height:16px;border-radius:50%;border:2px solid rgba(138,147,179,.35);border-top-color:var(--muted);display:inline-block;animation:spin .7s linear infinite;vertical-align:-3px;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .icon{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;vertical-align:-3px;}
+
+  /* ---- Login ---- */
+  .login-screen{max-width:440px;margin:0 auto;padding:72px 24px;text-align:center;}
+  .login-eyebrow{font:700 11px/1 monospace;letter-spacing:.14em;color:var(--office-muted);margin-bottom:14px;}
+  .login-title{font-size:26px;font-weight:800;margin:0 0 22px;letter-spacing:-0.02em;}
+  .login-cards{display:flex;flex-direction:column;gap:12px;}
+  .login-card{display:flex;align-items:center;gap:12px;text-align:left;background:var(--office-panel);border:1px solid var(--office-border);border-radius:12px;padding:18px;cursor:pointer;font:inherit;}
+  .login-card:hover{border-color:var(--ink-navy);}
+  .login-card b{display:block;font-size:15px;}
+  .login-card span{font-size:12px;color:var(--office-muted);}
+  .pin-box{max-width:280px;margin:20px auto 0;}
+  .pin-input{width:100%;text-align:center;letter-spacing:.35em;font-size:22px;padding:12px;border-radius:9px;border:1px solid var(--office-border);}
+  .login-error{color:var(--red);font-size:12px;font-weight:600;margin-top:8px;}
+  .login-hint{font-size:11px;color:var(--office-muted);margin-top:20px;}
+
+  /* ---- shared buttons/fields ---- */
+  .btn{border:none;border-radius:9px;font-weight:700;font-size:13px;padding:11px 18px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;}
+  .btn-primary{background:var(--ink-navy);color:#fff;}
+  .btn-primary:disabled{opacity:.4;cursor:not-allowed;}
+  .btn-secondary{background:#EEEBE2;color:var(--office-ink);}
+  .btn-ghost{background:transparent;color:var(--office-muted);}
+  .btn-danger{background:transparent;color:var(--red);}
+  .btn-block{width:100%;justify-content:center;margin-top:10px;}
+  .field-label{display:block;font-size:11px;font-weight:700;color:var(--office-muted);text-transform:uppercase;letter-spacing:.04em;margin:10px 0 4px;}
+  .field-input{width:100%;padding:9px 11px;border-radius:8px;border:1px solid var(--office-border);font-size:13px;background:#fff;color:var(--office-ink);}
+  .field-input:focus{outline:2px solid var(--amber);outline-offset:1px;}
+
+  /* ---- Board shell ---- */
+  .board-shell{background:var(--ink-navy);color:var(--off-white);min-height:100vh;}
+  .board-header{display:flex;align-items:center;gap:16px;padding:14px 22px;background:var(--ink-panel);border-bottom:1px solid #2A3560;}
+  .board-class-name{font-weight:700;font-size:15px;}
+  .board-tabs{display:flex;gap:6px;margin-left:auto;}
+  .board-tab{background:transparent;border:1px solid #2E3A66;color:var(--muted);padding:7px 14px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;}
+  .board-tab.active{background:var(--amber);color:#201404;border-color:var(--amber);}
+  .board-header-right{display:flex;align-items:center;gap:8px;}
+  .board-clock{font:700 15px/1 monospace;margin-right:4px;}
+  .icon-btn{background:transparent;border:1px solid #2E3A66;color:var(--muted);width:30px;height:30px;border-radius:7px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;}
+  .icon-btn:hover{color:var(--off-white);}
+  .board-setup{max-width:380px;margin:0 auto;padding:72px 24px;text-align:center;}
+
+  /* ---- Period display ---- */
+  .period-display{padding:22px 30px 40px;max-width:900px;margin:0 auto;}
+  .rail{display:flex;gap:5px;margin-bottom:24px;}
+  .rail-bar{height:8px;flex:1;border-radius:4px;background:#2A3560;}
+  .rail-now{background:var(--amber);} .rail-past{background:#3A4576;} .rail-sub{background:var(--red)!important;opacity:.85;}
+  .period-row{display:flex;align-items:center;gap:18px;padding:14px 18px;background:var(--ink-panel);border-radius:12px;border:1px solid transparent;border-left:4px solid var(--status-green);opacity:.65;margin-bottom:8px;}
+  .period-row.row-past{opacity:.35;} .period-row.row-now{opacity:1;border-color:var(--amber);background:var(--ink-panel-2);}
+  .period-row.status-substitute{border-left-color:var(--status-orange);}
+  .period-row.status-exchange{border-left-color:var(--status-yellow);}
+  .period-row.status-empty{border-left-color:var(--status-red);}
+  .period-row.row-now.status-substitute,.period-row.row-now.status-exchange,.period-row.row-now.status-empty{border-color:var(--amber);}
+  .break-row{padding:9px 18px;opacity:.4;background:transparent;font-size:13px;}
+  .row-time{font:700 12px/1 monospace;color:var(--muted);width:130px;flex-shrink:0;}
+  .row-name{font-size:16px;font-weight:700;}
+  .row-sub-detail{font-size:13px;color:var(--muted);}
+  .sub-detail{font-size:13px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .sub-badge{color:#fff;font:800 10px/1 monospace;letter-spacing:.06em;padding:4px 7px;border-radius:5px;}
+  .sub-badge.b-substitute{background:var(--status-orange);}
+  .sub-badge.b-exchange{background:var(--status-yellow);color:#3a2f04;}
+  .sub-badge.b-empty{background:var(--status-red);}
+  .sub-badge.b-normal{background:var(--status-green);}
+  .now-pill{margin-left:auto;background:var(--amber);color:#201404;font:800 10px/1 monospace;padding:5px 9px;border-radius:6px;}
+  .board-empty{min-height:70vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;}
+
+  /* ---- Staff status chips (teacher absent/present) — shared by board + office ---- */
+  .staff-strip{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:18px;}
+  .staff-chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:5px 10px;border-radius:999px;background:var(--ink-panel);}
+  .staff-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+  .staff-dot.present{background:var(--status-green);} .staff-dot.absent{background:var(--status-red);}
+  .staff-chip.office-chip{background:#F1F0EA;color:var(--office-ink);}
+
+  /* ---- Teacher portal ---- */
+  .teacher-shell{background:var(--office-bg);min-height:100vh;}
+  .teacher-header{display:flex;align-items:center;gap:14px;padding:14px 24px;background:var(--office-panel);border-bottom:1px solid var(--office-border);}
+  .teacher-header b{font-size:15px;}
+  .teacher-header span{font-size:12px;color:var(--office-muted);}
+  .teacher-body{max-width:820px;margin:0 auto;padding:24px;}
+  .teacher-section-title{font-size:14px;font-weight:800;margin:22px 0 10px;display:flex;align-items:center;gap:8px;}
+  .teacher-section-title:first-child{margin-top:0;}
+  .period-request-card{display:flex;align-items:center;gap:14px;background:var(--office-panel);border:1px solid var(--office-border);border-left:4px solid var(--status-green);border-radius:10px;padding:12px 14px;margin-bottom:8px;flex-wrap:wrap;}
+  .period-request-card.status-empty{border-left-color:var(--status-red);}
+  .period-request-card.status-substitute{border-left-color:var(--status-orange);}
+  .period-request-card.status-exchange{border-left-color:var(--status-yellow);}
+  .prc-main{flex:1;min-width:180px;}
+  .prc-class{font-size:11px;color:var(--office-muted);text-transform:uppercase;font-weight:700;letter-spacing:.03em;}
+  .prc-name{font-weight:700;font-size:14px;}
+  .prc-detail{font-size:12.5px;color:var(--office-muted);}
+  .request-row{background:var(--office-panel);border:1px solid var(--office-border);border-radius:10px;padding:12px 14px;margin-bottom:8px;}
+  .request-row-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .request-status-pill{font:700 10px/1 monospace;padding:4px 8px;border-radius:999px;text-transform:uppercase;letter-spacing:.04em;}
+  .request-status-pill.pending{background:#FDF1DC;color:#93600F;}
+  .request-status-pill.approved{background:rgba(71,184,129,.15);color:#1c7a4d;}
+  .request-status-pill.rejected{background:rgba(226,85,74,.1);color:#a5372e;}
+  .exchange-picker{background:#FAFAF6;border:1px solid var(--office-border);border-radius:10px;padding:14px;margin-top:10px;}
+
+  /* ---- Attendance ---- */
+  .attendance-screen{padding:20px 30px 40px;max-width:760px;margin:0 auto;}
+  .current-strip{display:flex;align-items:center;gap:10px;background:var(--ink-panel);padding:10px 18px;border-radius:10px;font-size:14px;margin-bottom:16px;}
+  .attn-subtabs{display:flex;gap:6px;margin-bottom:16px;}
+  .attn-subtab{background:transparent;border:1px solid #2E3A66;color:var(--muted);padding:7px 14px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;}
+  .attn-subtab.active{background:var(--ink-panel-2);color:var(--off-white);border-color:var(--amber);}
+  .scan-panel{display:flex;flex-direction:column;align-items:center;gap:10px;background:var(--ink-panel);border:1px dashed #3A4576;border-radius:16px;padding:34px;}
+  .scan-input{width:100%;max-width:400px;text-align:center;background:var(--ink-navy);border:1px solid #2E3A66;color:var(--off-white);padding:12px;border-radius:9px;font-size:15px;}
+  .flash-msg{font-size:13px;font-weight:700;padding:6px 12px;border-radius:7px;}
+  .flash-ok{background:rgba(71,184,129,.15);color:var(--green);} .flash-fail{background:rgba(226,85,74,.15);color:var(--red);}
+  .scan-log{background:var(--ink-panel);border-radius:12px;padding:14px 18px;margin-top:16px;}
+  .scan-log-head{display:flex;justify-content:space-between;font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:8px;}
+  .scan-log-row{display:flex;justify-content:space-between;font-size:13px;padding:7px 0;border-bottom:1px solid #2A3560;}
+  .face-video-wrap{position:relative;width:100%;max-width:420px;border-radius:12px;overflow:hidden;background:#000;}
+  .face-video-wrap video{width:100%;display:block;transform:scaleX(-1);}
+  .face-status{font-size:13px;margin-top:8px;color:var(--muted);text-align:center;}
+
+  /* ---- Office ---- */
+  .office-header{display:flex;align-items:center;gap:14px;padding:14px 24px;background:var(--office-panel);border-bottom:1px solid var(--office-border);}
+  .office-header b{font-weight:700;}
+  .class-picker{padding:8px 10px;border-radius:8px;border:1px solid var(--office-border);font-size:13px;font-weight:600;}
+  .office-header-right{margin-left:auto;display:flex;gap:8px;}
+  .office-tabs{display:flex;gap:4px;padding:10px 24px 0;background:var(--office-panel);border-bottom:1px solid var(--office-border);overflow-x:auto;}
+  .office-tab{background:transparent;border:none;border-bottom:2px solid transparent;padding:10px 14px;font-size:13px;font-weight:600;color:var(--office-muted);cursor:pointer;white-space:nowrap;}
+  .office-tab.active{color:var(--ink-navy);border-bottom-color:var(--amber);}
+  .office-body{max-width:900px;margin:0 auto;padding:24px;}
+  .panel-empty{color:var(--office-muted);font-size:13px;padding:14px 0;}
+  .day-tabs{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:16px;}
+  .day-tab{background:var(--office-panel);border:1px solid var(--office-border);border-radius:9px;padding:9px 4px;cursor:pointer;text-align:center;}
+  .day-tab.active{border-color:var(--ink-navy);background:#EFEEE8;}
+  .day-tab-name{font-weight:700;font-size:13px;display:block;}
+  .day-tab-count{font-size:10px;color:var(--office-muted);}
+  .routine-toolbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;font-size:13px;}
+  .period-card{display:flex;gap:10px;align-items:flex-start;background:var(--office-panel);border:1px solid var(--office-border);border-radius:10px;padding:12px;margin-bottom:10px;}
+  .period-card-order{display:flex;flex-direction:column;gap:4px;}
+  .mini-btn{width:24px;height:24px;border-radius:6px;border:1px solid var(--office-border);background:#fff;cursor:pointer;}
+  .period-card-fields{flex:1;display:flex;flex-direction:column;gap:8px;}
+  .field-row{display:flex;gap:8px;}
+  .field-col{flex:1;} .field-col-time{max-width:130px;}
+  .field-col label{font-size:10px;font-weight:700;color:var(--office-muted);text-transform:uppercase;display:block;margin-bottom:2px;}
+  .field-col input{width:100%;padding:7px 9px;border-radius:6px;border:1px solid var(--office-border);font-size:13px;}
+  .save-bar{display:flex;align-items:center;justify-content:flex-end;gap:12px;margin-top:16px;}
+  .saved-msg{color:var(--green);font-size:12px;font-weight:600;}
+  .subs-row{background:var(--office-panel);border:1px solid var(--office-border);border-radius:10px;padding:12px;margin-bottom:8px;}
+  .subs-row.active{border-color:var(--status-orange);background:#FDF3EA;}
+  .subs-row.vacant{border-color:var(--status-red);background:#FDF2F1;}
+  .subs-row-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .subs-time{font:700 11px/1 monospace;color:var(--office-muted);width:90px;}
+  .roster-add-row{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;}
+  .roster-add-row .field-input{flex:1;min-width:130px;}
+  .roster-table-head,.roster-table-row{display:grid;grid-template-columns:2fr 1fr 1.4fr 1fr 32px;gap:8px;padding:9px 14px;align-items:center;font-size:13px;}
+  .roster-table-head{background:#EFEEE8;font-weight:700;font-size:11px;text-transform:uppercase;color:var(--office-muted);border-radius:8px 8px 0 0;}
+  .roster-table-row{border-top:1px solid var(--office-border);background:#fff;}
+  .roster-table{border:1px solid var(--office-border);border-radius:10px;overflow:hidden;}
+  .mono{font-family:monospace;}
+  .chip{display:inline-block;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:700;}
+  .chip-green{background:rgba(71,184,129,.15);color:#1c7a4d;} .chip-muted{background:#EFEEE8;color:var(--office-muted);}
+  .log-summary{display:flex;gap:10px;margin-bottom:16px;}
+  .log-summary-card{flex:1;border-radius:10px;padding:14px;}
+  .log-summary-num{font-size:24px;font-weight:800;display:block;}
+  .absent-chips{display:flex;flex-wrap:wrap;gap:6px;}
+  .absent-chip{background:#FDF2F1;color:#a5372e;padding:5px 10px;border-radius:999px;font-size:12px;font-weight:600;}
+  .settings-note{color:var(--office-muted);font-size:13px;line-height:1.6;max-width:560px;}
+
+  /* ---- Modal (face enrollment) ---- */
+  .modal-backdrop{position:fixed;inset:0;background:rgba(18,24,42,.55);display:flex;align-items:center;justify-content:center;z-index:50;}
+  .modal-card{background:#fff;border-radius:14px;padding:22px;max-width:440px;width:92%;}
+  .modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:14px;}
+
+  @media (max-width:640px){ .field-row{flex-direction:column;} .roster-table-head,.roster-table-row{grid-template-columns:1fr;gap:2px;} }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+/* =========================================================================
+   DATA / CONSTANTS
+========================================================================= */
+const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+const DAY_FULL = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+
+function buildClassList(){
+  const list = [];
+  for (let g=1; g<=5; g++) list.push({id:`G${g}`, label:`Grade ${g}`});
+  for (let g=6; g<=10; g++) for (const s of ["A","B"]) list.push({id:`G${g}-${s}`, label:`Grade ${g}-${s}`});
+  for (let g=11; g<=12; g++) for (const s of ["A","B","C","D"]) list.push({id:`G${g}-${s}`, label:`Grade ${g}-${s}`});
+  return list;
+}
+const CLASSES = buildClassList();
+
+function uid(){ return Math.random().toString(36).slice(2,10); }
+
+function defaultDayRoutine(dayIdx){
+  if (dayIdx === 6) return {off:true, periods:[]};
+  return {off:false, periods:[
+    {id:uid(),kind:"class",name:"Period 1",subject:"English",teacher:"Ms. Sharma",start:"07:00",end:"07:45"},
+    {id:uid(),kind:"class",name:"Period 2",subject:"Mathematics",teacher:"Mr. Thapa",start:"07:45",end:"08:30"},
+    {id:uid(),kind:"break",name:"Break",subject:"",teacher:"",start:"08:30",end:"08:45"},
+    {id:uid(),kind:"class",name:"Period 3",subject:"Science",teacher:"Mrs. Gurung",start:"08:45",end:"09:30"},
+    {id:uid(),kind:"class",name:"Period 4",subject:"Social Studies",teacher:"Mr. Rai",start:"09:30",end:"10:15"},
+  ]};
+}
+function defaultWeek(){ const r={}; DAYS.forEach((d,i)=> r[d]=defaultDayRoutine(i)); return r; }
+
+function timeToMinutes(t){ const [h,m]=t.split(":").map(Number); return h*60+m; }
+function nowMinutes(){ const d=new Date(); return d.getHours()*60+d.getMinutes(); }
+function fmtTime(t){ const [h,m]=t.split(":").map(Number); const ap=h>=12?"PM":"AM"; const h12=h%12===0?12:h%12; return `${h12}:${String(m).padStart(2,"0")} ${ap}`; }
+function todayKey(){ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }
+function dayIndexFor(dateKey){ const d=new Date(dateKey+"T00:00:00"); return d.getDay(); }
+function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+
+/* Small hand-drawn icon set — kept to a single stroke weight so the whole app reads as one voice. */
+const ICON = {
+  settings: `<svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1 1.55V21a2 2 0 0 1-4 0v-.09A1.7 1.7 0 0 0 9 19.4a1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.55-1H3a2 2 0 0 1 0-4h.09A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.55V3a2 2 0 0 1 4 0v.09a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9a1.7 1.7 0 0 0 1.55 1H21a2 2 0 0 1 0 4h-.09a1.7 1.7 0 0 0-1.51 1z"/></svg>`,
+  exit: `<svg class="icon" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>`,
+  lock: `<svg class="icon" viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>`,
+  camera: `<svg class="icon" viewBox="0 0 24 24" style="width:30px;height:30px;"><path d="M4 8h3l1.5-2h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.5" r="3.5"/></svg>`,
+  barcode: `<svg class="icon" viewBox="0 0 24 24" style="width:30px;height:30px;"><path d="M3 5v14M7 5v14M10 5v14M14 5v14M16 5v14M20 5v14" stroke-width="1.8"/></svg>`,
+  swap: `<svg class="icon" viewBox="0 0 24 24"><path d="M17 3l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 21l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>`,
+};
+
+/* =========================================================================
+   TEACHERS / PERIOD STATUS
+   Status color meaning is the same everywhere: green = running normally,
+   orange = covered by an assigned substitute, yellow = covered via an
+   approved exchange with another teacher, red = teacher absent and the
+   period still has no coverage assigned.
+========================================================================= */
+async function getTeachers(){ return await storeGet("teachers", []); }
+async function getTeacherAttendance(dateKey){ return await storeGet(`teacherAttendance:${dateKey}`, {}); }
+
+// Names (not ids) of teachers marked absent on a date — periods are matched by teacher
+// name since routine periods only store a free-text teacher name, not a teacher id.
+async function getAbsentTeacherNames(dateKey){
+  const teachers = await getTeachers();
+  const attendance = await getTeacherAttendance(dateKey);
+  const absent = new Set();
+  teachers.forEach(t=>{ if (attendance[t.id] === "absent") absent.add(t.name.trim().toLowerCase()); });
+  return absent;
+}
+
+// Returns {status, label} for a single class period, given any substitution/exchange
+// record for it and the set of absent teacher names for that date.
+function computePeriodStatus(period, sub, absentNames){
+  if (sub && sub.type === "exchange") return {status:"exchange", label:"EXCHANGE"};
+  if (sub) return {status:"substitute", label:"SUBSTITUTE"};
+  if (period.teacher && absentNames.has(period.teacher.trim().toLowerCase())) return {status:"empty", label:"VACANT"};
+  return {status:"normal", label:"ACTIVE"};
+}
+
+async function getRequests(){ return await storeGet("periodRequests", []); }
+async function saveRequests(list){ await storeSet("periodRequests", list); }
+
+/* =========================================================================
+   STORAGE
+   Uses window.storage when available, otherwise browser localStorage
+========================================================================= */
+
+async function storeGet(key, fallback){
+  try {
+    // Use platform storage if available
+    if (window.storage && typeof window.storage.get === "function") {
+      const r = await window.storage.get(key, true);
+      return r ? JSON.parse(r.value) : fallback;
+    }
+
+    // Normal browser fallback
+    const value = localStorage.getItem(key);
+    return value ? JSON.parse(value) : fallback;
+
+  } catch (e) {
+    console.error("storage get failed:", key, e);
+    return fallback;
+  }
+}
+
+async function storeSet(key, value){
+  try {
+    const json = JSON.stringify(value);
+
+    // Use platform storage if available
+    if (window.storage && typeof window.storage.set === "function") {
+      await window.storage.set(key, json, true);
+      return true;
+    }
+
+    // Normal browser fallback
+    localStorage.setItem(key, json);
+    return true;
+
+  } catch (e) {
+    console.error("storage set failed:", key, e);
+    return false;
+  }
+}
+
+/* =========================================================================
+   FACE RECOGNITION (Human.js — on-device detection + embedding)
+========================================================================= */
+let human = null;
+let humanReady = false;
+let humanError = null;
+
+async function initHuman(){
+  try{
+    human = new Human.default({
+      modelBasePath: "https://cdn.jsdelivr.net/npm/@vladmandic/human@3.3.6/models/",
+      face: { enabled:true, detector:{rotation:false, maxDetected:1}, mesh:{enabled:false}, iris:{enabled:false},
+              description:{enabled:true}, emotion:{enabled:false}, antispoof:{enabled:false}, liveness:{enabled:false} },
+      body:{enabled:false}, hand:{enabled:false}, object:{enabled:false}, gesture:{enabled:false}, segmentation:{enabled:false}
+    });
+    const timeout = new Promise((_, rej)=> setTimeout(()=>rej(new Error("timed out — check your internet connection")), 25000));
+    await Promise.race([human.load(), timeout]);
+    await Promise.race([human.warmup(), timeout]);
+    humanReady = true;
+  } catch(e){
+    humanError = e?.message || "Failed to load face model";
+    console.error("Human init failed", e);
+  }
+}
+initHuman(); // kick off in the background as soon as the page loads
+
+function cosineSim(a,b){
+  let dot=0,na=0,nb=0;
+  for (let i=0;i<a.length;i++){ dot+=a[i]*b[i]; na+=a[i]*a[i]; nb+=b[i]*b[i]; }
+  return dot/(Math.sqrt(na)*Math.sqrt(nb) || 1);
+}
+const FACE_THRESHOLD = 0.62; // tune against real enrollment photos/lighting
+
+// Waits until the video element actually has pixels to read — calling detect() before
+// this is ready is the most common reason a scan silently never finds anything.
+function waitForVideoReady(videoEl){
+  return new Promise((resolve)=>{
+    if (videoEl.readyState >= 2 && videoEl.videoWidth > 0) return resolve();
+    const check = () => { if (videoEl.videoWidth > 0) resolve(); else setTimeout(check, 150); };
+    videoEl.addEventListener("loadeddata", check, {once:true});
+    setTimeout(check, 150);
+  });
+}
+
+// Returns { hasFace, embedding } instead of just an embedding, so the caller can tell the
+// difference between "no face in frame" and "found a face but the descriptor model didn't
+// return anything for it" — those need different messages to actually help someone debug.
+async function detectFaceEmbedding(videoEl){
+  if (!humanReady) return {hasFace:false, embedding:null};
+  const result = await human.detect(videoEl);
+  if (!result.face || !result.face.length) return {hasFace:false, embedding:null};
+  const largest = result.face.reduce((a,b)=> (a.box[2]*a.box[3] > b.box[2]*b.box[3] ? a : b));
+  if (!largest.embedding || !largest.embedding.length) return {hasFace:true, embedding:null};
+  return {hasFace:true, embedding: Array.from(largest.embedding)};
+}
+
+/* =========================================================================
+   APP STATE
+========================================================================= */
+const state = {
+  screen: "login",       // login | boardSetup | board | office | teacher
+  boardId: null,
+  classId: null,
+  boardTab: "period",     // period | attendance
+  attnTab: "barcode",     // barcode | face
+  officeUnlocked: false,
+  officeClassId: CLASSES[0].id,
+  officeTab: "routine",
+  loginShowPin: false,
+  loginShowTeacher: false,
+  loginTeacherError: "",
+  teacherAuth: null,      // {id, teacherId, name}
+};
+
+let cameraStream = null;
+function stopCamera(){
+  if (cameraStream){ cameraStream.getTracks().forEach(t=>t.stop()); cameraStream = null; }
+}
+
+const app = document.getElementById("app");
+function render(){ app.innerHTML = screens[state.screen](); bind(); }
+
+/* =========================================================================
+   SCREENS
+========================================================================= */
+const screens = {
+
+  login(){
+    const title = state.loginShowPin ? "Enter office PIN" : state.loginShowTeacher ? "Teacher sign in" : "Who's signing in?";
+    return `
+      <div class="login-screen">
+        <div class="login-eyebrow">SCHOOL SYSTEM</div>
+        <div class="login-title">${title}</div>
+        ${(!state.loginShowPin && !state.loginShowTeacher) ? `
+          <div class="login-cards">
+            <button class="login-card" id="pick-classroom"><span><b>Classroom board</b><span>Period display &amp; attendance</span></span></button>
+            <button class="login-card" id="pick-teacher"><span><b>Teacher login</b><span>Your periods, coverage &amp; exchanges</span></span></button>
+            <button class="login-card" id="pick-office"><span><b>Office login</b><span>Routine, substitutions, roster, staff</span></span></button>
+          </div>
+        ` : state.loginShowPin ? `
+          <div class="pin-box">
+            <input class="pin-input" id="pin-input" type="password" inputmode="numeric" placeholder="PIN" autofocus />
+            <div id="pin-error" class="login-error"></div>
+            <button class="btn btn-primary btn-block" id="pin-submit">Unlock</button>
+            <button class="btn btn-ghost btn-block" id="pin-back">Back</button>
+            <div class="login-hint">Default PIN is 1234 — change it from Settings after logging in.</div>
+          </div>
+        ` : `
+          <div class="pin-box" style="max-width:300px;">
+            <label class="field-label" style="text-align:left;">Teacher ID</label>
+            <input class="field-input" id="teacher-id-input" placeholder="e.g. T101" autofocus />
+            <label class="field-label" style="text-align:left;">Password</label>
+            <input class="field-input" id="teacher-pw-input" type="password" placeholder="Password" />
+            ${state.loginTeacherError ? `<div class="login-error">${esc(state.loginTeacherError)}</div>` : ""}
+            <button class="btn btn-primary btn-block" id="teacher-submit">Sign in</button>
+            <button class="btn btn-ghost btn-block" id="teacher-back">Back</button>
+            <div class="login-hint">Teacher accounts are created by the office.</div>
+          </div>
+        `}
+      </div>
+    `;
+  },
+
+  boardSetup(){
+    return `
+      <div class="board-setup">
+        <h1>Set up this board</h1>
+        <p style="color:var(--office-muted);font-size:13px;">This only needs to happen once per physical smart board.</p>
+        <label class="field-label" style="text-align:left;">Board ID (e.g. room number)</label>
+        <input class="field-input" id="board-id-input" placeholder="Room-6A" />
+        <label class="field-label" style="text-align:left;">This board belongs to</label>
+        <select class="field-input" id="board-class-select">
+          ${CLASSES.map(c=>`<option value="${c.id}">${c.label}</option>`).join("")}
+        </select>
+        <button class="btn btn-primary btn-block" id="board-setup-save">Save &amp; continue</button>
+        <button class="btn btn-ghost btn-block" id="board-setup-back">Back</button>
+      </div>
+    `;
+  },
+
+  board(){
+    return `
+      <div class="board-shell">
+        <div class="board-header">
+          <span class="board-class-name">${esc(CLASSES.find(c=>c.id===state.classId)?.label||"")}</span>
+          <div class="board-tabs">
+            <button class="board-tab ${state.boardTab==='period'?'active':''}" id="tab-period">Periods</button>
+            <button class="board-tab ${state.boardTab==='attendance'?'active':''}" id="tab-attendance">Attendance</button>
+          </div>
+          <div class="board-header-right">
+            <span class="board-clock" id="board-clock">${new Date().toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"})}</span>
+            <button class="icon-btn" id="board-settings" title="Change board setup">${ICON.settings}</button>
+            <button class="icon-btn" id="board-exit" title="Exit">${ICON.exit}</button>
+          </div>
+        </div>
+        <div id="board-content"></div>
+      </div>
+    `;
+  },
+
+  teacher(){
+    const t = state.teacherAuth;
+    return `
+      <div class="teacher-shell">
+        <div class="teacher-header">
+          <div><b>${esc(t?.name||"")}</b><br/><span>Teacher ID ${esc(t?.teacherId||"")}</span></div>
+          <div style="margin-left:auto;display:flex;gap:8px;">
+            <span class="board-clock" id="teacher-clock" style="color:var(--office-ink);">${new Date().toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"})}</span>
+            <button class="icon-btn" id="teacher-exit" title="Sign out" style="border-color:var(--office-border);color:var(--office-ink);">${ICON.exit}</button>
+          </div>
+        </div>
+        <div class="teacher-body" id="teacher-content"></div>
+      </div>
+    `;
+  },
+
+  office(){
+    const titles = [["routine","Weekly routine"],["subs","Substitutions"],["requests","Requests"],["staff","Staff attendance"],["teachers","Teachers"],["roster","Roster"],["log","Attendance log"],["settings","Settings"]];
+    return `
+      <div class="office-shell">
+        <div class="office-header">
+          <b>Office Console</b>
+          <select class="class-picker" id="office-class-select">
+            ${CLASSES.map(c=>`<option value="${c.id}" ${c.id===state.officeClassId?"selected":""}>${c.label}</option>`).join("")}
+          </select>
+          <div class="office-header-right">
+            <button class="icon-btn" id="office-lock" title="Lock console">${ICON.lock}</button>
+            <button class="icon-btn" id="office-exit" title="Exit">${ICON.exit}</button>
+          </div>
+        </div>
+        <div class="office-tabs">
+          ${titles.map(([k,label])=>`<button class="office-tab ${state.officeTab===k?'active':''}" data-tab="${k}">${label}</button>`).join("")}
+        </div>
+        <div class="office-body" id="office-content"></div>
+      </div>
+    `;
+  }
+};
+
+/* =========================================================================
+   EVENT BINDING per top-level screen
+========================================================================= */
+function bind(){
+  if (state.screen === "login") bindLogin();
+  if (state.screen === "boardSetup") bindBoardSetup();
+  if (state.screen === "board") bindBoard();
+  if (state.screen === "office") bindOffice();
+  if (state.screen === "teacher") bindTeacher();
+}
+
+/* ---- Login ---- */
+function bindLogin(){
+  const pick = document.getElementById("pick-classroom");
+  if (pick) pick.onclick = () => { state.screen = "boardSetup"; render(); };
+  const office = document.getElementById("pick-office");
+  if (office) office.onclick = () => { state.loginShowPin = true; render(); };
+  const teacherPick = document.getElementById("pick-teacher");
+  if (teacherPick) teacherPick.onclick = () => { state.loginShowTeacher = true; state.loginTeacherError = ""; render(); };
+
+  const back = document.getElementById("pin-back");
+  if (back) back.onclick = () => { state.loginShowPin = false; render(); };
+  const submit = document.getElementById("pin-submit");
+  const input = document.getElementById("pin-input");
+  if (input) input.focus();
+  async function tryPin(){
+    const real = await storeGet("office-pin", "1234");
+    if (input.value === real){
+      state.officeUnlocked = true; state.screen = "office"; state.loginShowPin = false; render();
+    } else {
+      document.getElementById("pin-error").textContent = "Incorrect PIN";
+    }
+  }
+  if (submit) submit.onclick = tryPin;
+  if (input) input.onkeydown = (e)=>{ if (e.key==="Enter") tryPin(); };
+
+  const tBack = document.getElementById("teacher-back");
+  if (tBack) tBack.onclick = () => { state.loginShowTeacher = false; state.loginTeacherError = ""; render(); };
+  const tSubmit = document.getElementById("teacher-submit");
+  const tId = document.getElementById("teacher-id-input");
+  const tPw = document.getElementById("teacher-pw-input");
+  if (tId) tId.focus();
+  async function tryTeacherLogin(){
+    const teachers = await getTeachers();
+    const match = teachers.find(t=> t.teacherId.trim().toLowerCase() === tId.value.trim().toLowerCase() && t.password === tPw.value);
+    if (match){
+      state.teacherAuth = {id:match.id, teacherId:match.teacherId, name:match.name};
+      state.loginShowTeacher = false; state.loginTeacherError = ""; state.screen = "teacher"; render();
+    } else {
+      state.loginTeacherError = "Incorrect teacher ID or password.";
+      render();
+    }
+  }
+  if (tSubmit) tSubmit.onclick = tryTeacherLogin;
+  if (tPw) tPw.onkeydown = (e)=>{ if (e.key==="Enter") tryTeacherLogin(); };
+}
+
+/* ---- Board setup ---- */
+function bindBoardSetup(){
+  document.getElementById("board-setup-back").onclick = () => { state.screen = "login"; render(); };
+  document.getElementById("board-setup-save").onclick = async () => {
+    const id = document.getElementById("board-id-input").value.trim();
+    const cls = document.getElementById("board-class-select").value;
+    if (!id) return;
+    const boards = await storeGet("boards", {});
+    boards[id] = cls;
+    await storeSet("boards", boards);
+    state.boardId = id; state.classId = cls; state.screen = "board"; render();
+  };
+}
+
+/* ---- Board shell (period display / attendance) ---- */
+let boardClockTimer = null, boardRefreshTimer = null;
+
+function bindBoard(){
+  document.getElementById("tab-period").onclick = () => { stopCamera(); state.boardTab = "period"; render(); };
+  document.getElementById("tab-attendance").onclick = () => { state.boardTab = "attendance"; render(); };
+  document.getElementById("board-settings").onclick = () => { stopCamera(); state.boardId=null; state.classId=null; state.screen="boardSetup"; render(); };
+  document.getElementById("board-exit").onclick = () => { stopCamera(); state.screen="login"; render(); };
+
+  clearInterval(boardClockTimer);
+  boardClockTimer = setInterval(()=>{
+    const el = document.getElementById("board-clock");
+    if (el) el.textContent = new Date().toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"});
+  }, 1000);
+
+  if (state.boardTab === "period") renderPeriodDisplay();
+  else renderAttendanceScreen();
+}
+
+async function renderPeriodDisplay(){
+  const content = document.getElementById("board-content");
+  content.innerHTML = `<div class="board-empty"><span class="spin"></span> Loading today's routine…</div>`;
+  const week = await storeGet(`routine:${state.classId}`, defaultWeek());
+  const date = todayKey();
+  const subs = await storeGet(`substitutions:${state.classId}:${date}`, {});
+  const absentNames = await getAbsentTeacherNames(date);
+  const dayIdx = new Date().getDay();
+  const dayData = week[DAYS[dayIdx]] || {off:true, periods:[]};
+  const mins = nowMinutes();
+
+  if (dayData.off){
+    content.innerHTML = `<div class="board-empty"><h2>No school today</h2><p style="color:var(--muted);">Enjoy the day off.</p></div>`;
+    return;
+  }
+
+  const classPeriods = dayData.periods.filter(p=>p.kind==="class");
+  const rail = classPeriods.map(p=>{
+    const s=timeToMinutes(p.start), e=timeToMinutes(p.end);
+    const st = computePeriodStatus(p, subs[p.id], absentNames).status;
+    let cls = "rail-bar ";
+    if (mins>=s && mins<e) cls += "rail-now";
+    else if (st==="empty") cls += "rail-sub";
+    else if (mins>=e) cls += "rail-past";
+    return `<div class="${cls}"></div>`;
+  }).join("");
+
+  // Only surface teachers who actually teach this class today — not the whole school.
+  const teachersToday = [...new Set(classPeriods.map(p=>p.teacher).filter(Boolean))];
+  const staffStrip = teachersToday.length ? `
+    <div class="staff-strip">
+      ${teachersToday.map(name=>{
+        const isAbsent = absentNames.has(name.trim().toLowerCase());
+        return `<span class="staff-chip"><span class="staff-dot ${isAbsent?'absent':'present'}"></span>${esc(name)}${isAbsent?' (absent)':''}</span>`;
+      }).join("")}
+    </div>` : "";
+
+  const rows = dayData.periods.map(p=>{
+    const s=timeToMinutes(p.start), e=timeToMinutes(p.end);
+    const isNow = mins>=s && mins<e;
+    const isPast = mins>=e;
+    if (p.kind==="break"){
+      return `<div class="period-row break-row ${isNow?'row-now':isPast?'row-past':''}"><span class="row-time">${fmtTime(p.start)} – ${fmtTime(p.end)}</span><span>${esc(p.name)}</span></div>`;
+    }
+    const sub = subs[p.id];
+    const st = computePeriodStatus(p, sub, absentNames);
+    return `
+      <div class="period-row status-${st.status} ${isNow?'row-now':isPast?'row-past':''}">
+        <span class="row-time">${fmtTime(p.start)} – ${fmtTime(p.end)}</span>
+        <div style="flex:1;">
+          <div class="row-name">${esc(p.name)}</div>
+          ${st.status==="exchange" ? `
+            <div class="sub-detail">
+              <span class="sub-badge b-exchange">EXCHANGE</span>
+              <span>${esc(sub.subSubject||p.subject)} · ${esc(sub.subTeacher)} <span style="color:var(--muted);">(exchanged with ${esc(p.teacher)})</span></span>
+            </div>` : st.status==="substitute" ? `
+            <div class="sub-detail">
+              <span class="sub-badge b-substitute">SUBSTITUTE</span>
+              <span>${esc(sub.subSubject||p.subject)} · ${esc(sub.subTeacher)} <span style="color:var(--muted);">(covering for ${esc(p.teacher)})</span></span>
+            </div>` : st.status==="empty" ? `
+            <div class="sub-detail">
+              <span class="sub-badge b-empty">VACANT</span>
+              <span style="color:var(--muted);">${esc(p.subject)} · ${esc(p.teacher)} is absent — no coverage assigned yet</span>
+            </div>` : `<div class="row-sub-detail">${esc(p.subject)} · ${esc(p.teacher)}</div>`}
+        </div>
+        ${isNow ? `<span class="now-pill">NOW</span>` : ""}
+      </div>`;
+  }).join("");
+
+  content.innerHTML = `<div class="period-display">${staffStrip}<div class="rail">${rail}</div>${rows}</div>`;
+
+  clearTimeout(boardRefreshTimer);
+  boardRefreshTimer = setTimeout(()=>{ if (state.boardTab==="period") renderPeriodDisplay(); }, 15000);
+}
+
+async function renderAttendanceScreen(){
+  const content = document.getElementById("board-content");
+  content.innerHTML = `<div class="attendance-screen"><div class="board-empty"><span class="spin"></span> Loading…</div></div>`;
+
+  const date = todayKey();
+  const week = await storeGet(`routine:${state.classId}`, defaultWeek());
+  const subs = await storeGet(`substitutions:${state.classId}:${date}`, {});
+  const roster = await storeGet(`roster:${state.classId}`, []);
+  const log = await storeGet(`attendance:${state.classId}:${date}`, []);
+  const dayIdx = new Date().getDay();
+  const dayData = week[DAYS[dayIdx]] || {off:true, periods:[]};
+  const mins = nowMinutes();
+  const current = (dayData.periods||[]).filter(p=>p.kind==="class").find(p=> mins>=timeToMinutes(p.start) && mins<timeToMinutes(p.end));
+  const currentSub = current ? subs[current.id] : null;
+  const absentNames = await getAbsentTeacherNames(date);
+  const currentStatus = current ? computePeriodStatus(current, currentSub, absentNames) : null;
+
+  content.innerHTML = `
+    <div class="attendance-screen">
+      <div class="current-strip">
+        ${current ? `
+          <b>${esc(current.name)}</b>
+          ${currentStatus.status==="exchange" ? `<span class="sub-badge b-exchange">EXCHANGE · ${esc(currentSub.subTeacher)}</span>` :
+            currentStatus.status==="substitute" ? `<span class="sub-badge b-substitute">SUBSTITUTE · ${esc(currentSub.subTeacher)}</span>` :
+            currentStatus.status==="empty" ? `<span class="sub-badge b-empty">VACANT · ${esc(current.teacher)} absent</span>` :
+            `<span style="color:var(--muted);">${esc(current.subject)} · ${esc(current.teacher)}</span>`}
+        ` : `<span style="color:var(--muted);">No class in session right now</span>`}
+      </div>
+      <div class="attn-subtabs">
+        <button class="attn-subtab ${state.attnTab==='barcode'?'active':''}" id="subtab-barcode">Barcode scan</button>
+        <button class="attn-subtab ${state.attnTab==='face'?'active':''}" id="subtab-face">Face recognition</button>
+      </div>
+      <div id="attn-panel"></div>
+      <div class="scan-log">
+        <div class="scan-log-head"><span>Checked in today</span><span>${log.length}</span></div>
+        <div id="scan-log-list">
+          ${log.length===0 ? `<div style="color:var(--muted);font-size:13px;">No scans yet today.</div>` :
+            log.slice().reverse().map(e=>`<div class="scan-log-row"><span>${esc(e.name)}${e.method==='face'?' (face)':''}</span><span style="color:var(--muted);">${esc(e.periodName)} · ${new Date(e.timeMillis).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</span></div>`).join("")}
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.getElementById("subtab-barcode").onclick = () => { stopCamera(); state.attnTab="barcode"; renderAttendanceScreen(); };
+  document.getElementById("subtab-face").onclick = () => { state.attnTab="face"; renderAttendanceScreen(); };
+
+  async function recordAttendance(barcode, name, method, confidence){
+    const periodId = current ? current.id : "none";
+    const periodName = current ? current.name : "Outside period";
+    const already = log.find(e=>e.barcode===barcode && e.periodId===periodId);
+    if (already) return {ok:true, dup:true};
+    const entry = {barcode, name, method, periodId, periodName, timeMillis: Date.now(), confidence: confidence||null};
+    const newLog = [...log, entry];
+    await storeSet(`attendance:${state.classId}:${date}`, newLog);
+    renderAttendanceScreen();
+    return {ok:true};
+  }
+
+  const panel = document.getElementById("attn-panel");
+  if (state.attnTab === "barcode"){
+    stopCamera();
+    panel.innerHTML = `
+      <div class="scan-panel">
+        ${ICON.barcode}
+        <input class="scan-input" id="scan-input" placeholder="Waiting for scan…" autofocus />
+        <div id="scan-flash"></div>
+        <div style="color:var(--muted);font-size:12px;text-align:center;">A USB/Bluetooth barcode scanner types the code here automatically and hits Enter.</div>
+      </div>`;
+    const input = document.getElementById("scan-input");
+    input.focus();
+    input.onkeydown = async (e)=>{
+      if (e.key !== "Enter") return;
+      const code = input.value.trim();
+      input.value = "";
+      const student = roster.find(s=>s.barcode===code);
+      const flash = document.getElementById("scan-flash");
+      if (!student){
+        flash.innerHTML = `<div class="flash-msg flash-fail">Unknown barcode: ${esc(code)}</div>`;
+        return;
+      }
+      const r = await recordAttendance(student.barcode, student.name, "barcode");
+      if (document.getElementById("scan-flash")) {
+        document.getElementById("scan-flash").innerHTML = `<div class="flash-msg flash-ok">${r.dup ? esc(student.name)+" already marked" : "Marked "+esc(student.name)+" present"}</div>`;
+      }
+    };
+    // keep refocusing so a hardware scanner (which just "types") always lands here
+    const refocus = setInterval(()=>{ const i=document.getElementById("scan-input"); if (i && state.boardTab==="attendance" && state.attnTab==="barcode") i.focus(); else clearInterval(refocus); }, 2000);
+  } else {
+    if (!humanReady && !humanError){
+      panel.innerHTML = `<div class="scan-panel"><span class="spin"></span> Loading face recognition model — this can take a moment on the first run…</div>`;
+      setTimeout(()=>{ if (state.boardTab==="attendance" && state.attnTab==="face") renderAttendanceScreen(); }, 1500);
+      return;
+    }
+    if (humanError){
+      panel.innerHTML = `<div class="scan-panel"><div style="color:var(--red);text-align:center;">Face recognition couldn't load (${esc(humanError)}). Barcode scanning still works normally.</div><button class="btn btn-secondary" id="retry-human">Try again</button></div>`;
+      document.getElementById("retry-human").onclick = () => { humanError = null; initHuman(); renderAttendanceScreen(); };
+      return;
+    }
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+      panel.innerHTML = `<div class="scan-panel"><div style="text-align:center;">This browser can't access a camera here — it usually needs the page loaded over <b>https://</b> (or opened directly as a local file, not inside an embedded preview).</div></div>`;
+      return;
+    }
+    const enrolled = roster.filter(s=>s.faceDescriptor && s.faceDescriptor.length);
+    panel.innerHTML = `
+      <div class="scan-panel">
+        ${ICON.camera}
+        <div style="color:var(--muted);font-size:12px;text-align:center;max-width:340px;">Turns on this device's camera to check faces against ${enrolled.length} enrolled student${enrolled.length===1?"":"s"}. Nothing leaves the browser.</div>
+        <button class="btn btn-primary" id="enable-camera">Turn on camera</button>
+      </div>`;
+    document.getElementById("enable-camera").onclick = () => {
+      panel.innerHTML = `
+        <div class="scan-panel">
+          <div class="face-video-wrap"><video id="face-video" autoplay playsinline muted></video></div>
+          <div class="face-status" id="face-status">Starting camera…</div>
+        </div>`;
+      startFaceLoop(enrolled, recordAttendance);
+    };
+  }
+}
+
+let faceLoopActive = false;
+let lastMatchedBarcode = null;
+let lastMatchedAt = 0;
+
+async function startFaceLoop(enrolled, recordAttendance){
+  stopCamera();
+  const video = document.getElementById("face-video");
+  const statusEl = document.getElementById("face-status");
+  try{
+    cameraStream = await navigator.mediaDevices.getUserMedia({video:{facingMode:"user"}, audio:false});
+    video.srcObject = cameraStream;
+    await video.play().catch(()=>{});
+    await waitForVideoReady(video);
+  } catch(e){
+    if (statusEl) statusEl.textContent = "Camera access was denied, or no camera is available. Check the site's camera permission and try again.";
+    console.error("getUserMedia failed", e);
+    return;
+  }
+  if (!enrolled.length && document.getElementById("face-status")){
+    document.getElementById("face-status").textContent = "Camera is on — but no students are enrolled yet. Add a face from the office console's Roster tab.";
+  }
+  faceLoopActive = true;
+
+  async function loop(){
+    if (!faceLoopActive || state.boardTab!=="attendance" || state.attnTab!=="face") return;
+    try{
+      const {hasFace, embedding} = await detectFaceEmbedding(video);
+      const statusElNow = document.getElementById("face-status");
+      if (!hasFace){
+        if (statusElNow) statusElNow.textContent = "Point a face at the camera";
+      } else if (!embedding){
+        if (statusElNow) statusElNow.textContent = "Face detected, but couldn't read it clearly — try better lighting or move closer";
+      } else if (!enrolled.length){
+        if (statusElNow) statusElNow.textContent = "Face detected — but no students are enrolled yet";
+      } else {
+        let best=null, bestScore=-1;
+        for (const s of enrolled){ const score = cosineSim(embedding, s.faceDescriptor); if (score>bestScore){bestScore=score; best=s;} }
+        if (best && bestScore >= FACE_THRESHOLD){
+          if (statusElNow) statusElNow.textContent = `Matched ${best.name} (${Math.round(bestScore*100)}%)`;
+          const now = Date.now();
+          if (!(best.barcode===lastMatchedBarcode && now-lastMatchedAt < 8000)){
+            lastMatchedBarcode = best.barcode; lastMatchedAt = now;
+            await recordAttendance(best.barcode, best.name, "face", bestScore);
+            return; // renderAttendanceScreen() inside recordAttendance rebuilds this panel/video
+          }
+        } else if (statusElNow){
+          statusElNow.textContent = `Face detected, but no confident match (best ${Math.round(bestScore*100)}%) — not enrolled, or try better lighting`;
+        }
+      }
+    } catch(e){ console.error("face loop error", e); }
+    setTimeout(loop, 900);
+  }
+  loop();
+}
+
+/* ---- Teacher portal ---- */
+async function renderTeacherHome(){
+  const content = document.getElementById("teacher-content");
+  content.innerHTML = `<div class="board-empty" style="min-height:40vh;color:var(--office-muted);"><span class="spin"></span> Loading…</div>`;
+
+  const date = todayKey();
+  const dayIdx = new Date().getDay();
+  const teacher = state.teacherAuth;
+  const teachers = await getTeachers();
+  const absentNames = await getAbsentTeacherNames(date);
+  const amIAbsent = absentNames.has(teacher.name.trim().toLowerCase());
+
+  // Gather every class period scheduled today, across the whole school, with its status.
+  const allToday = [];
+  for (const c of CLASSES){
+    const week = await storeGet(`routine:${c.id}`, defaultWeek());
+    const subs = await storeGet(`substitutions:${c.id}:${date}`, {});
+    const dayData = week[DAYS[dayIdx]] || {off:true, periods:[]};
+    if (dayData.off) continue;
+    dayData.periods.filter(p=>p.kind==="class").forEach(p=>{
+      const sub = subs[p.id];
+      const st = computePeriodStatus(p, sub, absentNames);
+      allToday.push({classId:c.id, className:c.label, period:p, sub, status:st.status, label:st.label});
+    });
+  }
+
+  const emptyPeriods = allToday.filter(x=>x.status==="empty");
+  const myPeriods = allToday.filter(x=> x.period.teacher && x.period.teacher.trim().toLowerCase() === teacher.name.trim().toLowerCase());
+  const requests = (await getRequests()).filter(r=>r.teacherId===teacher.id).sort((a,b)=>b.createdAt-a.createdAt).slice(0,8);
+
+  content.innerHTML = `
+    ${amIAbsent ? `<div class="flash-msg flash-fail" style="margin-bottom:16px;display:inline-block;">You're marked absent today in the office's staff attendance — let the office know if that's wrong.</div>` : ""}
+
+    <div class="teacher-section-title">${ICON.swap} Empty periods you could cover <span style="color:var(--office-muted);font-weight:400;">(${emptyPeriods.length})</span></div>
+    ${emptyPeriods.length===0 ? `<div class="panel-empty">No uncovered periods right now.</div>` :
+      emptyPeriods.map(x=>`
+        <div class="period-request-card status-empty">
+          <div class="prc-main">
+            <div class="prc-class">${esc(x.className)}</div>
+            <div class="prc-name">${esc(x.period.name)} · ${esc(x.period.subject)} <span class="sub-badge b-empty">VACANT</span></div>
+            <div class="prc-detail">${fmtTime(x.period.start)}–${fmtTime(x.period.end)} · usually ${esc(x.period.teacher)} (absent today)</div>
+          </div>
+          <button class="btn btn-primary" data-take="${x.classId}|${x.period.id}">Request to take this period</button>
+        </div>`).join("")
+    }
+
+    <div class="teacher-section-title">Your periods today <span style="color:var(--office-muted);font-weight:400;">(${myPeriods.length})</span></div>
+    ${myPeriods.length===0 ? `<div class="panel-empty">You have no periods scheduled today.</div>` :
+      myPeriods.map(x=>`
+        <div class="period-request-card status-${x.status}">
+          <div class="prc-main">
+            <div class="prc-class">${esc(x.className)}</div>
+            <div class="prc-name">${esc(x.period.name)} · ${esc(x.period.subject)} <span class="sub-badge b-${x.status}">${x.label}</span></div>
+            <div class="prc-detail">${fmtTime(x.period.start)}–${fmtTime(x.period.end)}${x.sub && x.sub.type==="exchange" ? ` · exchanged with ${esc(x.sub.subTeacher)} (${esc(x.sub.exchangeWith?.className||"")})` : ""}</div>
+          </div>
+          ${x.status==="normal" ? `<button class="btn btn-secondary" data-exchange="${x.classId}|${x.period.id}">Request exchange</button>` : ""}
+        </div>`).join("")
+    }
+
+    <div class="teacher-section-title">Your requests</div>
+    ${requests.length===0 ? `<div class="panel-empty">You haven't made any requests yet.</div>` :
+      requests.map(r=>`
+        <div class="request-row">
+          <div class="request-row-head">
+            <span class="request-status-pill ${r.status}">${r.status}</span>
+            <b>${r.type==="take" ? "Take period" : "Exchange"}</b>
+          </div>
+          <div class="prc-detail" style="margin-top:4px;">
+            ${r.type==="take"
+              ? `${esc(r.targetClassName)} · ${esc(r.targetPeriodName)}`
+              : `Your ${esc(r.myPeriodName)} (${esc(r.myClassName)}) ⇄ ${esc(r.targetTeacherName)}'s ${esc(r.targetPeriodName)} (${esc(r.targetClassName)})`}
+          </div>
+        </div>`).join("")
+    }
+  `;
+
+  document.querySelectorAll("[data-take]").forEach(btn=>{
+    btn.onclick = async () => {
+      const [classId, periodId] = btn.dataset.take.split("|");
+      const item = emptyPeriods.find(x=>x.classId===classId && x.period.id===periodId);
+      if (!item) return;
+      const list = await getRequests();
+      list.push({
+        id:uid(), type:"take", status:"pending", createdAt:Date.now(), date,
+        teacherId:teacher.id, teacherName:teacher.name,
+        targetClassId:classId, targetClassName:item.className, targetPeriodId:periodId,
+        targetPeriodName:item.period.name, targetSubject:item.period.subject,
+      });
+      await saveRequests(list);
+      renderTeacherHome();
+    };
+  });
+
+  document.querySelectorAll("[data-exchange]").forEach(btn=>{
+    btn.onclick = () => {
+      const [classId, periodId] = btn.dataset.exchange.split("|");
+      const mine = myPeriods.find(x=>x.classId===classId && x.period.id===periodId);
+      if (mine) openExchangePicker(mine, allToday, teacher, date);
+    };
+  });
+}
+
+function openExchangePicker(mine, allToday, teacher, date){
+  const others = allToday.filter(x=> x.status==="normal" && x.period.teacher && x.period.teacher.trim().toLowerCase() !== teacher.name.trim().toLowerCase());
+  const backdrop = document.createElement("div");
+  backdrop.className = "modal-backdrop";
+  backdrop.innerHTML = `
+    <div class="modal-card">
+      <h3 style="margin-top:0;">Exchange ${esc(mine.period.name)} (${esc(mine.className)})</h3>
+      <p style="color:var(--office-muted);font-size:13px;">Pick another teacher's period today to swap with. The office needs to approve this before it's final — it won't show as an exchange on any board until then.</p>
+      <label class="field-label">Swap with</label>
+      <select class="field-input" id="exchange-target">
+        <option value="">Choose a period…</option>
+        ${others.map(x=>`<option value="${x.classId}|${x.period.id}">${esc(x.period.teacher)} — ${esc(x.className)} · ${esc(x.period.name)} (${esc(x.period.subject)}, ${fmtTime(x.period.start)})</option>`).join("")}
+      </select>
+      ${others.length===0 ? `<div class="panel-empty">No other teachers' periods are available to swap with today.</div>` : ""}
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="exchange-cancel">Cancel</button>
+        <button class="btn btn-primary" id="exchange-submit" ${others.length===0?"disabled":""}>Send request</button>
+      </div>
+    </div>`;
+  document.body.appendChild(backdrop);
+  document.getElementById("exchange-cancel").onclick = () => backdrop.remove();
+  document.getElementById("exchange-submit").onclick = async () => {
+    const val = document.getElementById("exchange-target").value;
+    if (!val) return;
+    const [targetClassId, targetPeriodId] = val.split("|");
+    const target = others.find(x=>x.classId===targetClassId && x.period.id===targetPeriodId);
+    if (!target) return;
+    const list = await getRequests();
+    list.push({
+      id:uid(), type:"exchange", status:"pending", createdAt:Date.now(), date,
+      teacherId:teacher.id, teacherName:teacher.name,
+      myClassId:mine.classId, myClassName:mine.className, myPeriodId:mine.period.id, myPeriodName:mine.period.name, mySubject:mine.period.subject,
+      targetTeacherName:target.period.teacher, targetClassId:target.classId, targetClassName:target.className,
+      targetPeriodId:target.period.id, targetPeriodName:target.period.name, targetSubject:target.period.subject,
+    });
+    await saveRequests(list);
+    backdrop.remove();
+    renderTeacherHome();
+  };
+}
+
+function bindTeacher(){
+  document.getElementById("teacher-exit").onclick = () => { state.teacherAuth=null; state.screen="login"; render(); };
+  clearInterval(boardClockTimer);
+  boardClockTimer = setInterval(()=>{
+    const el = document.getElementById("teacher-clock");
+    if (el) el.textContent = new Date().toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"});
+  }, 1000);
+  renderTeacherHome();
+}
+
+/* ---- Office console ---- */
+function bindOffice(){
+  document.getElementById("office-class-select").onchange = (e)=>{ state.officeClassId = e.target.value; renderOfficeTab(); };
+  document.querySelectorAll(".office-tab").forEach(btn=>{
+    btn.onclick = () => { state.officeTab = btn.dataset.tab; render(); };
+  });
+  document.getElementById("office-lock").onclick = () => { state.officeUnlocked=false; state.screen="login"; render(); };
+  document.getElementById("office-exit").onclick = () => { state.officeUnlocked=false; state.screen="login"; render(); };
+  renderOfficeTab();
+}
+
+function renderOfficeTab(){
+  const content = document.getElementById("office-content");
+  if (state.officeTab==="routine") renderRoutineEditor(content);
+  else if (state.officeTab==="subs") renderSubsEditor(content);
+  else if (state.officeTab==="requests") renderRequestsPanel(content);
+  else if (state.officeTab==="staff") renderStaffAttendancePanel(content);
+  else if (state.officeTab==="teachers") renderTeachersPanel(content);
+  else if (state.officeTab==="roster") renderRosterEditor(content);
+  else if (state.officeTab==="log") renderLogViewer(content);
+  else renderSettingsPanel(content);
+}
+
+/* ---- Weekly routine editor ---- */
+let routineDraft = null, routineDraftClassId = null, routineDay = DAYS[new Date().getDay()];
+
+async function renderRoutineEditor(content){
+  if (routineDraftClassId !== state.officeClassId){
+    routineDraft = await storeGet(`routine:${state.officeClassId}`, defaultWeek());
+    routineDraftClassId = state.officeClassId;
+  }
+  const dayData = routineDraft[routineDay] || {off:false, periods:[]};
+
+  content.innerHTML = `
+    <div class="day-tabs">
+      ${DAYS.map(d=>{ const dd = routineDraft[d]||{off:false,periods:[]};
+        return `<div class="day-tab ${routineDay===d?'active':''}" data-day="${d}">
+          <span class="day-tab-name">${d}</span><span class="day-tab-count">${dd.off?'Off':dd.periods.filter(p=>p.kind==='class').length+' periods'}</span>
+        </div>`; }).join("")}
+    </div>
+    <div class="routine-toolbar">
+      <label><input type="checkbox" id="day-off-toggle" ${dayData.off?"checked":""} /> No school on ${DAY_FULL[DAYS.indexOf(routineDay)]}</label>
+      <select class="field-input" id="copy-from-select" style="width:auto;">
+        <option value="">Copy periods from…</option>
+        ${DAYS.filter(d=>d!==routineDay).map(d=>`<option value="${d}">${d}</option>`).join("")}
+      </select>
+    </div>
+    <div id="period-cards">${dayData.off ? "" : dayData.periods.map((p,i)=>periodCardHtml(p,i,dayData.periods.length)).join("")}</div>
+    ${dayData.off ? "" : `
+      <div style="display:flex;gap:8px;margin-top:4px;">
+        <button class="btn btn-secondary" id="add-class-period">+ Add class period</button>
+        <button class="btn btn-secondary" id="add-break">+ Add break</button>
+      </div>`}
+    <div class="save-bar"><span class="saved-msg" id="routine-saved-msg"></span><button class="btn btn-primary" id="save-week">Save whole week</button></div>
+  `;
+
+  document.querySelectorAll(".day-tab").forEach(el=>{
+    el.onclick = () => { syncPeriodCardsFromDom(); routineDay = el.dataset.day; renderRoutineEditor(content); };
+  });
+  document.getElementById("day-off-toggle").onchange = (e)=>{
+    routineDraft[routineDay] = {...dayData, off: e.target.checked};
+    renderRoutineEditor(content);
+  };
+  document.getElementById("copy-from-select").onchange = (e)=>{
+    if (!e.target.value) return;
+    const src = routineDraft[e.target.value];
+    routineDraft[routineDay] = {off:src.off, periods: src.periods.map(p=>({...p, id:uid()}))};
+    renderRoutineEditor(content);
+  };
+  const addClassBtn = document.getElementById("add-class-period");
+  if (addClassBtn) addClassBtn.onclick = () => {
+    syncPeriodCardsFromDom();
+    const list = routineDraft[routineDay].periods;
+    const last = list[list.length-1];
+    const start = last ? last.end : "07:00";
+    const end = addMinutes(start, 45);
+    const count = list.filter(p=>p.kind==="class").length;
+    list.push({id:uid(),kind:"class",name:`Period ${count+1}`,subject:"",teacher:"",start,end});
+    renderRoutineEditor(content);
+  };
+  const addBreakBtn = document.getElementById("add-break");
+  if (addBreakBtn) addBreakBtn.onclick = () => {
+    syncPeriodCardsFromDom();
+    const list = routineDraft[routineDay].periods;
+    const last = list[list.length-1];
+    const start = last ? last.end : "07:00";
+    list.push({id:uid(),kind:"break",name:"Break",subject:"",teacher:"",start,end:addMinutes(start,15)});
+    renderRoutineEditor(content);
+  };
+  document.querySelectorAll("[data-move]").forEach(btn=>{
+    btn.onclick = () => {
+      syncPeriodCardsFromDom();
+      const list = routineDraft[routineDay].periods;
+      const idx = Number(btn.dataset.idx); const dir = Number(btn.dataset.move);
+      const swap = idx+dir;
+      if (swap<0 || swap>=list.length) return;
+      [list[idx], list[swap]] = [list[swap], list[idx]];
+      renderRoutineEditor(content);
+    };
+  });
+  document.querySelectorAll("[data-remove]").forEach(btn=>{
+    btn.onclick = () => {
+      syncPeriodCardsFromDom();
+      routineDraft[routineDay].periods = routineDraft[routineDay].periods.filter(p=>p.id!==btn.dataset.remove);
+      renderRoutineEditor(content);
+    };
+  });
+  document.getElementById("save-week").onclick = async () => {
+    syncPeriodCardsFromDom();
+    await storeSet(`routine:${state.officeClassId}`, routineDraft);
+    document.getElementById("routine-saved-msg").textContent = "Whole week saved.";
+  };
+}
+
+function periodCardHtml(p, idx, total){
+  return `
+    <div class="period-card" data-period-id="${p.id}">
+      <div class="period-card-order">
+        <button class="mini-btn" data-move="-1" data-idx="${idx}" ${idx===0?"disabled":""}>↑</button>
+        <button class="mini-btn" data-move="1" data-idx="${idx}" ${idx===total-1?"disabled":""}>↓</button>
+      </div>
+      <div class="period-card-fields">
+        <div class="field-row"><div class="field-col"><label>Name</label><input data-f="name" value="${esc(p.name)}" /></div>
+          ${p.kind==="class" ? `
+            <div class="field-col"><label>Subject</label><input data-f="subject" value="${esc(p.subject)}" /></div>
+            <div class="field-col"><label>Teacher</label><input data-f="teacher" value="${esc(p.teacher)}" /></div>` : ""}
+        </div>
+        <div class="field-row">
+          <div class="field-col field-col-time"><label>Start</label><input data-f="start" type="time" value="${p.start}" /></div>
+          <div class="field-col field-col-time"><label>End</label><input data-f="end" type="time" value="${p.end}" /></div>
+        </div>
+      </div>
+      <button class="mini-btn" style="color:var(--red);" data-remove="${p.id}">✕</button>
+    </div>`;
+}
+
+// Reads whatever's currently typed in the period cards back into routineDraft before
+// any structural change (add/remove/reorder/day switch), so in-progress edits aren't lost.
+function syncPeriodCardsFromDom(){
+  if (!routineDraft || !routineDraft[routineDay]) return;
+  const list = routineDraft[routineDay].periods;
+  document.querySelectorAll(".period-card").forEach(card=>{
+    const id = card.dataset.periodId;
+    const p = list.find(x=>x.id===id);
+    if (!p) return;
+    card.querySelectorAll("[data-f]").forEach(inp=>{ p[inp.dataset.f] = inp.value; });
+  });
+}
+
+function addMinutes(hhmm, add){
+  const [h,m] = hhmm.split(":").map(Number);
+  const total = h*60+m+add;
+  return `${String(Math.floor(total/60)%24).padStart(2,"0")}:${String(total%60).padStart(2,"0")}`;
+}
+
+/* ---- Substitutions editor ---- */
+let subsDraft = null, subsDraftKey = null, subsDate = todayKey();
+
+async function renderSubsEditor(content){
+  const key = state.officeClassId+"|"+subsDate;
+  if (subsDraftKey !== key){
+    subsDraft = await storeGet(`substitutions:${state.officeClassId}:${subsDate}`, {});
+    subsDraftKey = key;
+  }
+  const week = await storeGet(`routine:${state.officeClassId}`, defaultWeek());
+  const dayIdx = dayIndexFor(subsDate);
+  const dayData = week[DAYS[dayIdx]] || {off:true, periods:[]};
+  const classPeriods = dayData.off ? [] : dayData.periods.filter(p=>p.kind==="class");
+  const absentNames = await getAbsentTeacherNames(subsDate);
+
+  content.innerHTML = `
+    <div style="margin-bottom:14px;">
+      <label class="field-label">Date</label>
+      <input class="field-input" id="subs-date" type="date" value="${subsDate}" style="max-width:200px;" />
+    </div>
+    ${dayData.off ? `<div class="panel-empty">No school on this date (${DAY_FULL[dayIdx]}).</div>` :
+      classPeriods.length===0 ? `<div class="panel-empty">No class periods set for ${DAY_FULL[dayIdx]} yet — add them in Weekly routine.</div>` :
+      classPeriods.map(p=>{
+        const sub = subsDraft[p.id];
+        const isAbsent = p.teacher && absentNames.has(p.teacher.trim().toLowerCase());
+        const isVacant = isAbsent && !sub;
+        return `
+          <div class="subs-row ${sub?'active':''} ${isVacant?'vacant':''}" data-pid="${p.id}">
+            <div class="subs-row-head">
+              <span class="subs-time">${fmtTime(p.start)}</span><b>${esc(p.name)}</b>
+              <span style="color:var(--office-muted);font-size:12px;">usually ${esc(p.subject)} · ${esc(p.teacher)}</span>
+              ${sub && sub.type==="exchange" ? `<span class="sub-badge b-exchange">EXCHANGE</span>` : sub ? `<span class="sub-badge b-substitute">SUBSTITUTE</span>` : isVacant ? `<span class="sub-badge b-empty">VACANT · teacher absent</span>` : ""}
+            </div>
+            ${sub ? `
+              <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">
+                <input class="field-input" data-sf="subTeacher" placeholder="Substitute teacher" value="${esc(sub.subTeacher||"")}" style="flex:1;min-width:150px;" />
+                <input class="field-input" data-sf="subSubject" placeholder="Subject (optional)" value="${esc(sub.subSubject||"")}" style="flex:1;min-width:150px;" />
+                <button class="btn btn-ghost" data-clear-sub="${p.id}">Remove</button>
+              </div>` : `<button class="btn btn-secondary" style="margin-top:6px;" data-mark-sub="${p.id}">Mark as substitute</button>`}
+          </div>`;
+      }).join("")
+    }
+    <div class="save-bar"><span class="saved-msg" id="subs-saved-msg"></span><button class="btn btn-primary" id="save-subs">Save substitutions for this date</button></div>
+  `;
+
+  document.getElementById("subs-date").onchange = (e)=>{ subsDate = e.target.value; renderSubsEditor(content); };
+  document.querySelectorAll("[data-mark-sub]").forEach(btn=>{
+    btn.onclick = () => { syncSubsFromDom(); subsDraft[btn.dataset.markSub] = {periodId:btn.dataset.markSub, subTeacher:"", subSubject:""}; renderSubsEditor(content); };
+  });
+  document.querySelectorAll("[data-clear-sub]").forEach(btn=>{
+    btn.onclick = () => { syncSubsFromDom(); delete subsDraft[btn.dataset.clearSub]; renderSubsEditor(content); };
+  });
+  document.getElementById("save-subs").onclick = async () => {
+    syncSubsFromDom();
+    await storeSet(`substitutions:${state.officeClassId}:${subsDate}`, subsDraft);
+    document.getElementById("subs-saved-msg").textContent = "Saved — boards update within seconds.";
+  };
+}
+function syncSubsFromDom(){
+  document.querySelectorAll(".subs-row").forEach(row=>{
+    const pid = row.dataset.pid;
+    if (!subsDraft[pid]) return;
+    row.querySelectorAll("[data-sf]").forEach(inp=>{ subsDraft[pid][inp.dataset.sf] = inp.value; });
+  });
+}
+
+/* ---- Requests (approve/reject teacher take & exchange requests) ---- */
+async function renderRequestsPanel(content){
+  const all = await getRequests();
+  const pending = all.filter(r=>r.status==="pending").sort((a,b)=>a.createdAt-b.createdAt);
+  const resolved = all.filter(r=>r.status!=="pending").sort((a,b)=>b.createdAt-a.createdAt).slice(0,15);
+
+  content.innerHTML = `
+    <div class="teacher-section-title" style="margin-top:0;">Pending requests <span style="color:var(--office-muted);font-weight:400;">(${pending.length})</span></div>
+    ${pending.length===0 ? `<div class="panel-empty">No pending requests.</div>` :
+      pending.map(r=>`
+        <div class="request-row">
+          <div class="request-row-head">
+            <span class="request-status-pill pending">pending</span>
+            <b>${r.type==="take" ? "Take empty period" : "Period exchange"}</b>
+            <span style="color:var(--office-muted);font-size:12px;margin-left:auto;">${esc(r.teacherName)}</span>
+          </div>
+          <div class="prc-detail" style="margin-top:6px;">
+            ${r.type==="take"
+              ? `Wants to cover <b>${esc(r.targetPeriodName)}</b> (${esc(r.targetSubject)}) in <b>${esc(r.targetClassName)}</b>`
+              : `Wants to swap their <b>${esc(r.myPeriodName)}</b> (${esc(r.myClassName)}) with <b>${esc(r.targetTeacherName)}</b>'s <b>${esc(r.targetPeriodName)}</b> (${esc(r.targetClassName)})`}
+          </div>
+          <div style="display:flex;gap:8px;margin-top:10px;">
+            <button class="btn btn-primary" data-approve="${r.id}">Approve</button>
+            <button class="btn btn-danger" data-reject="${r.id}">Reject</button>
+          </div>
+        </div>`).join("")
+    }
+    <div class="teacher-section-title">Recently resolved</div>
+    ${resolved.length===0 ? `<div class="panel-empty">Nothing resolved yet.</div>` :
+      resolved.map(r=>`
+        <div class="request-row">
+          <div class="request-row-head">
+            <span class="request-status-pill ${r.status}">${r.status}</span>
+            <b>${r.type==="take" ? "Take empty period" : "Period exchange"}</b>
+            <span style="color:var(--office-muted);font-size:12px;margin-left:auto;">${esc(r.teacherName)}</span>
+          </div>
+        </div>`).join("")
+    }
+  `;
+  document.querySelectorAll("[data-approve]").forEach(btn=>{
+    btn.onclick = async () => { await resolveRequest(btn.dataset.approve, "approved"); renderRequestsPanel(content); };
+  });
+  document.querySelectorAll("[data-reject]").forEach(btn=>{
+    btn.onclick = async () => { await resolveRequest(btn.dataset.reject, "rejected"); renderRequestsPanel(content); };
+  });
+}
+
+// Approving is what actually writes coverage into the relevant class's substitutions —
+// nothing shows as orange/yellow on any board until the office approves it here.
+async function resolveRequest(requestId, decision){
+  const list = await getRequests();
+  const req = list.find(r=>r.id===requestId);
+  if (!req) return;
+  req.status = decision;
+  if (decision === "approved"){
+    if (req.type === "take"){
+      const subs = await storeGet(`substitutions:${req.targetClassId}:${req.date}`, {});
+      subs[req.targetPeriodId] = {type:"substitute", subTeacher:req.teacherName, subSubject:"", requestId:req.id};
+      await storeSet(`substitutions:${req.targetClassId}:${req.date}`, subs);
+    } else if (req.type === "exchange"){
+      const mySubs = await storeGet(`substitutions:${req.myClassId}:${req.date}`, {});
+      mySubs[req.myPeriodId] = {
+        type:"exchange", subTeacher:req.targetTeacherName, subSubject:req.targetSubject,
+        exchangeWith:{classId:req.targetClassId, className:req.targetClassName, periodId:req.targetPeriodId, teacherName:req.targetTeacherName},
+        requestId:req.id,
+      };
+      await storeSet(`substitutions:${req.myClassId}:${req.date}`, mySubs);
+      const targetSubs = await storeGet(`substitutions:${req.targetClassId}:${req.date}`, {});
+      targetSubs[req.targetPeriodId] = {
+        type:"exchange", subTeacher:req.teacherName, subSubject:req.mySubject,
+        exchangeWith:{classId:req.myClassId, className:req.myClassName, periodId:req.myPeriodId, teacherName:req.teacherName},
+        requestId:req.id,
+      };
+      await storeSet(`substitutions:${req.targetClassId}:${req.date}`, targetSubs);
+    }
+  }
+  await saveRequests(list);
+}
+
+/* ---- Staff attendance (simple manual present/absent toggle) ---- */
+let staffAttendanceDate = todayKey();
+async function renderStaffAttendancePanel(content){
+  const teachers = await getTeachers();
+  const attendance = await getTeacherAttendance(staffAttendanceDate);
+  content.innerHTML = `
+    <p style="color:var(--office-muted);font-size:13px;max-width:560px;">A simple manual toggle for this prototype — your school's real staff attendance system stays the source of truth. Marking someone absent here is what turns their periods vacant (red) on classroom boards and in the teacher portal.</p>
+    <div style="margin-bottom:14px;"><label class="field-label">Date</label>
+      <input class="field-input" id="staff-date" type="date" value="${staffAttendanceDate}" style="max-width:200px;" /></div>
+    ${teachers.length===0 ? `<div class="panel-empty">No teacher accounts yet — add some in the Teachers tab.</div>` :
+      teachers.map(t=>{
+        const status = attendance[t.id] || "present";
+        return `
+        <div class="request-row" style="display:flex;align-items:center;gap:12px;">
+          <span class="staff-dot ${status}"></span>
+          <div style="flex:1;"><b>${esc(t.name)}</b> <span style="color:var(--office-muted);font-size:12px;">· ${esc(t.teacherId)}</span></div>
+          <button class="btn ${status==='present'?'btn-secondary':'btn-primary'}" data-mark="${t.id}|present">Present</button>
+          <button class="btn ${status==='absent'?'btn-danger':'btn-secondary'}" data-mark="${t.id}|absent">Absent</button>
+        </div>`;
+      }).join("")
+    }
+  `;
+  document.getElementById("staff-date").onchange = (e)=>{ staffAttendanceDate = e.target.value; renderStaffAttendancePanel(content); };
+  document.querySelectorAll("[data-mark]").forEach(btn=>{
+    btn.onclick = async () => {
+      const [teacherId, status] = btn.dataset.mark.split("|");
+      const att = await getTeacherAttendance(staffAttendanceDate);
+      att[teacherId] = status;
+      await storeSet(`teacherAttendance:${staffAttendanceDate}`, att);
+      renderStaffAttendancePanel(content);
+    };
+  });
+}
+
+/* ---- Teacher accounts (office-managed login credentials) ---- */
+async function renderTeachersPanel(content){
+  const teachers = await getTeachers();
+  content.innerHTML = `
+    <div class="roster-add-row">
+      <input class="field-input" id="new-teacher-name" placeholder="Teacher name" />
+      <input class="field-input" id="new-teacher-id" placeholder="Teacher ID (e.g. T101)" />
+      <input class="field-input" id="new-teacher-pw" placeholder="Password" type="password" />
+      <button class="btn btn-primary" id="add-teacher">+ Add</button>
+    </div>
+    <div id="teacher-msg" style="font-size:12px;margin-bottom:8px;"></div>
+    <div class="roster-table">
+      <div class="roster-table-head" style="grid-template-columns:2fr 1fr 1fr 32px;"><span>Name</span><span>Teacher ID</span><span>Password</span><span></span></div>
+      ${teachers.length===0 ? `<div class="panel-empty">No teacher accounts yet.</div>` :
+        teachers.map(t=>`
+          <div class="roster-table-row" style="grid-template-columns:2fr 1fr 1fr 32px;">
+            <span>${esc(t.name)}</span><span class="mono">${esc(t.teacherId)}</span><span class="mono">••••••</span>
+            <button class="mini-btn" style="color:var(--red);" data-remove-teacher="${t.id}">✕</button>
+          </div>`).join("")}
+    </div>
+  `;
+  document.getElementById("add-teacher").onclick = async () => {
+    const name = document.getElementById("new-teacher-name").value.trim();
+    const teacherId = document.getElementById("new-teacher-id").value.trim();
+    const password = document.getElementById("new-teacher-pw").value;
+    const msg = document.getElementById("teacher-msg");
+    if (!name || !teacherId || !password) return;
+    if (teachers.some(t=>t.teacherId.toLowerCase()===teacherId.toLowerCase())){
+      msg.style.color = "var(--red)"; msg.textContent = "That teacher ID is already in use.";
+      return;
+    }
+    const next = [...teachers, {id:uid(), name, teacherId, password}];
+    await storeSet("teachers", next);
+    msg.style.color = "var(--green)"; msg.textContent = "Teacher added.";
+    renderTeachersPanel(content);
+  };
+  document.querySelectorAll("[data-remove-teacher]").forEach(btn=>{
+    btn.onclick = async () => {
+      const next = teachers.filter(t=>t.id!==btn.dataset.removeTeacher);
+      await storeSet("teachers", next);
+      renderTeachersPanel(content);
+    };
+  });
+}
+
+/* ---- Roster editor (barcodes + face enrollment) ---- */
+async function renderRosterEditor(content){
+  const roster = await storeGet(`roster:${state.officeClassId}`, []);
+  content.innerHTML = `
+    <div class="roster-add-row">
+      <input class="field-input" id="new-name" placeholder="Student name" />
+      <input class="field-input" id="new-roll" placeholder="Roll no. (optional)" />
+      <input class="field-input" id="new-barcode" placeholder="ID card barcode" />
+      <button class="btn btn-primary" id="add-student">+ Add</button>
+    </div>
+    <div id="roster-msg" style="color:var(--green);font-size:12px;margin-bottom:8px;"></div>
+    <div class="roster-table">
+      <div class="roster-table-head"><span>Name</span><span>Roll</span><span>Barcode</span><span>Face</span><span></span></div>
+      ${roster.length===0 ? `<div class="panel-empty">No students added yet for this class.</div>` :
+        roster.map(s=>`
+          <div class="roster-table-row">
+            <span>${esc(s.name)}</span><span>${esc(s.roll||"—")}</span><span class="mono">${esc(s.barcode)}</span>
+            <span>${s.faceDescriptor && s.faceDescriptor.length ? `<span class="chip chip-green">Enrolled</span>` : `<button class="btn btn-secondary" data-enroll="${s.barcode}" style="padding:5px 10px;font-size:11px;">Enroll face</button>`}</span>
+            <button class="mini-btn" style="color:var(--red);" data-remove-student="${s.barcode}">✕</button>
+          </div>`).join("")}
+    </div>
+  `;
+  document.getElementById("add-student").onclick = async () => {
+    const name = document.getElementById("new-name").value.trim();
+    const roll = document.getElementById("new-roll").value.trim();
+    const barcode = document.getElementById("new-barcode").value.trim();
+    if (!name || !barcode) return;
+    const next = [...roster, {name, roll, barcode, faceDescriptor:null}];
+    await storeSet(`roster:${state.officeClassId}`, next);
+    document.getElementById("roster-msg").textContent = "Student added.";
+    renderRosterEditor(content);
+  };
+  document.querySelectorAll("[data-remove-student]").forEach(btn=>{
+    btn.onclick = async () => {
+      const next = roster.filter(s=>s.barcode!==btn.dataset.removeStudent);
+      await storeSet(`roster:${state.officeClassId}`, next);
+      renderRosterEditor(content);
+    };
+  });
+  document.querySelectorAll("[data-enroll]").forEach(btn=>{
+    btn.onclick = () => openEnrollModal(btn.dataset.enroll, roster, content);
+  });
+}
+
+async function openEnrollModal(barcode, roster, content){
+  const student = roster.find(s=>s.barcode===barcode);
+  const backdrop = document.createElement("div");
+  backdrop.className = "modal-backdrop";
+  backdrop.innerHTML = `
+    <div class="modal-card">
+      <h3 style="margin-top:0;">Enroll face — ${esc(student.name)}</h3>
+      ${!humanReady ? `<div>${humanError ? 'Face model failed to load: '+esc(humanError) : 'Loading face model…'}</div>` : `
+        <div class="face-video-wrap" style="max-width:100%;"><video id="enroll-video" autoplay playsinline muted></video></div>
+        <div class="face-status" id="enroll-status">Line up the face, then tap Capture</div>
+      `}
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="enroll-cancel">Cancel</button>
+        ${humanReady ? `<button class="btn btn-primary" id="enroll-capture">Capture</button>` : ""}
+      </div>
+    </div>`;
+  document.body.appendChild(backdrop);
+
+  let enrollStream = null;
+  if (humanReady){
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+      document.getElementById("enroll-status").textContent = "This browser can't access a camera here — try opening the page directly over https:// rather than inside an embedded preview.";
+    } else {
+      try{
+        enrollStream = await navigator.mediaDevices.getUserMedia({video:{facingMode:"user"}, audio:false});
+        const v = document.getElementById("enroll-video");
+        v.srcObject = enrollStream;
+        await v.play().catch(()=>{});
+        await waitForVideoReady(v);
+      } catch(e){
+        document.getElementById("enroll-status").textContent = "Camera access was denied. Check the site's camera permission and try again.";
+        console.error("getUserMedia failed", e);
+      }
+    }
+  }
+  function cleanup(){ if (enrollStream) enrollStream.getTracks().forEach(t=>t.stop()); backdrop.remove(); }
+  document.getElementById("enroll-cancel").onclick = cleanup;
+  const captureBtn = document.getElementById("enroll-capture");
+  if (captureBtn) captureBtn.onclick = async () => {
+    const video = document.getElementById("enroll-video");
+    document.getElementById("enroll-status").textContent = "Processing…";
+    const {hasFace, embedding} = await detectFaceEmbedding(video);
+    if (!hasFace){
+      document.getElementById("enroll-status").textContent = "No face detected — center the face in frame and try again";
+      return;
+    }
+    if (!embedding){
+      document.getElementById("enroll-status").textContent = "Found a face but couldn't read it clearly — try better lighting, then try again";
+      return;
+    }
+    const emb = embedding;
+    const next = roster.map(s=> s.barcode===barcode ? {...s, faceDescriptor: emb} : s);
+    await storeSet(`roster:${state.officeClassId}`, next);
+    cleanup();
+    renderRosterEditor(content);
+  };
+}
+
+/* ---- Attendance log viewer ---- */
+let logDate = todayKey();
+async function renderLogViewer(content){
+  const log = await storeGet(`attendance:${state.officeClassId}:${logDate}`, []);
+  const roster = await storeGet(`roster:${state.officeClassId}`, []);
+  const present = new Set(log.map(e=>e.barcode));
+  const absent = roster.filter(s=>!present.has(s.barcode));
+
+  content.innerHTML = `
+    <div style="margin-bottom:14px;"><label class="field-label">Date</label>
+      <input class="field-input" id="log-date" type="date" value="${logDate}" style="max-width:200px;" /></div>
+    <div class="log-summary">
+      <div class="log-summary-card" style="background:rgba(71,184,129,.12);color:#1c7a4d;"><span class="log-summary-num">${present.size}</span>scanned present</div>
+      <div class="log-summary-card" style="background:rgba(226,85,74,.1);color:#a5372e;"><span class="log-summary-num">${absent.length}</span>not yet scanned</div>
+    </div>
+    <div class="roster-table">
+      <div class="roster-table-head" style="grid-template-columns:2fr 1.4fr 1fr;"><span>Name</span><span>Period</span><span>Time</span></div>
+      ${log.length===0 ? `<div class="panel-empty">No scans recorded for this date.</div>` :
+        log.slice().reverse().map(e=>`
+          <div class="roster-table-row" style="grid-template-columns:2fr 1.4fr 1fr;">
+            <span>${esc(e.name)}${e.method==='face' ? ` <span class="chip chip-muted">face ${Math.round((e.confidence||0)*100)}%</span>` : ` <span class="chip chip-muted">barcode</span>`}</span>
+            <span>${esc(e.periodName)}</span><span class="mono">${new Date(e.timeMillis).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</span>
+          </div>`).join("")}
+    </div>
+    ${absent.length ? `<div style="font-size:12px;font-weight:700;color:var(--office-muted);margin:18px 0 8px;text-transform:uppercase;">Not yet scanned today</div>
+      <div class="absent-chips">${absent.map(s=>`<span class="absent-chip">${esc(s.name)}</span>`).join("")}</div>` : ""}
+  `;
+  document.getElementById("log-date").onchange = (e)=>{ logDate = e.target.value; renderLogViewer(content); };
+}
+
+/* ---- Settings ---- */
+function renderSettingsPanel(content){
+  content.innerHTML = `
+    <h3 style="margin-top:0;">Office PIN</h3>
+    <p class="settings-note">This PIN is a deterrent, not real security — for a real deployment, also keep the office console on a URL the classroom boards never load, and consider per-staff logins if more than one or two people manage it.</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
+      <input class="field-input" id="pin-current" type="password" placeholder="Current PIN" style="max-width:160px;" />
+      <input class="field-input" id="pin-next" type="password" placeholder="New PIN" style="max-width:160px;" />
+      <button class="btn btn-primary" id="pin-update">Update PIN</button>
+    </div>
+    <div id="pin-msg" style="margin-top:10px;font-size:13px;font-weight:600;"></div>
+  `;
+  document.getElementById("pin-update").onclick = async () => {
+    const cur = document.getElementById("pin-current").value;
+    const next = document.getElementById("pin-next").value;
+    const real = await storeGet("office-pin", "1234");
+    const msg = document.getElementById("pin-msg");
+    if (cur !== real){ msg.textContent = "Current PIN is incorrect."; msg.style.color="var(--red)"; return; }
+    if (next.trim().length < 4){ msg.textContent = "New PIN should be at least 4 digits."; msg.style.color="var(--red)"; return; }
+    await storeSet("office-pin", next.trim());
+    msg.textContent = "PIN updated."; msg.style.color="var(--green)";
+    document.getElementById("pin-current").value=""; document.getElementById("pin-next").value="";
+  };
+}
+
+/* =========================================================================
+   BOOT — login is always the first screen
+========================================================================= */
+render();
+</script>
+</body>
+</html>
